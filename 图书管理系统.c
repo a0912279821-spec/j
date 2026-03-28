@@ -1,6 +1,8 @@
 #include <stdio.h>
-#include<string.h>
+#include <string.h>
+
 #define max 100
+
 void addBook(void);
 void listBook(void);
 int findBookid(int id);
@@ -12,9 +14,13 @@ void returnBook(void);
 void saveBooksToFile(void);
 void loadBooksFromFile(void);
 void budgetRecommend(void);
-void dfsBuyBook(int index, double sum);
+void dfsBuyBook(int index, double sum, int bookCount);
 void clearInputBuffer(FILE *stream);
 void readLine(FILE *stream, char str[], int size);
+int inputInt(const char *prompt, int *value);
+int inputDouble(const char *prompt, double *value);
+void inputString(const char *prompt, char str[], int size);
+
 typedef struct
 {
     int id;//图书编号
@@ -31,6 +37,10 @@ Book books[max];
 int count=0;//书的数量
 double budget;
 int chosen[max];
+int bestChosen[max];
+double bestSum=0;
+int bestBookCount=0;
+int hasBestPlan=0;
 
 void clearInputBuffer(FILE *stream)
 {
@@ -52,37 +62,98 @@ void readLine(FILE *stream, char str[], int size)
     }
 }
 
+int inputInt(const char *prompt, int *value)
+{
+    char line[100];
+    char extra;
+
+    while (1)
+    {
+        printf("%s", prompt);
+        readLine(stdin, line, sizeof(line));
+        if (strlen(line) == 0)
+        {
+            printf("输入不能为空，请重新输入。\n");
+            continue;
+        }
+        if (sscanf(line, "%d %c", value, &extra) == 1)
+        {
+            return 1;
+        }
+        printf("输入错误，请重新输入。\n");
+    }
+}
+
+int inputDouble(const char *prompt, double *value)
+{
+    char line[100];
+    char extra;
+
+    while (1)
+    {
+        printf("%s", prompt);
+        readLine(stdin, line, sizeof(line));
+        if (strlen(line) == 0)
+        {
+            printf("输入不能为空，请重新输入。\n");
+            continue;
+        }
+        if (sscanf(line, "%lf %c", value, &extra) == 1)
+        {
+            return 1;
+        }
+        printf("输入错误，请重新输入。\n");
+    }
+}
+
+void inputString(const char *prompt, char str[], int size)
+{
+    while (1)
+    {
+        printf("%s", prompt);
+        readLine(stdin, str, size);
+        if (strlen(str) == 0)
+        {
+            printf("输入不能为空，请重新输入。\n");
+            continue;
+        }
+        return;
+    }
+}
+
 void addBook(void)
 {
     if (count >= max)
     {
-    printf("图书数量已满，无法继续添加\n");
-    return;
-	}
-    printf("请输入图书编号:");
-    scanf("%d", &books[count].id);
-    clearInputBuffer(stdin);
-    if (findBookid(books[count].id) != -1)
-	{
-    printf("该图书编号已存在，无法重复添加\n");
-    return;
-	}
-    printf("请输入图书名称:");
-    readLine(stdin, books[count].name, sizeof(books[count].name));
-    printf("请输入作者名称:");
-    readLine(stdin, books[count].author, sizeof(books[count].author));
-    printf("请输入出版社:");
-    readLine(stdin, books[count].publisher, sizeof(books[count].publisher));
-    printf("请输入价格:");
-    scanf("%lf", &books[count].price);
-    printf("请输入图书总量:");
-    scanf("%d", &books[count].total);
-    printf("是否推荐(1.是 0.否): ");
-    scanf("%d", &books[count].recommend);
+        printf("图书数量已满，无法继续添加\n");
+        return;
+    }
+
+    while (1)
+    {
+        inputInt("请输入图书编号:", &books[count].id);
+        if (findBookid(books[count].id) != -1)
+        {
+            printf("该图书编号已存在，无法重复添加\n");
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    inputString("请输入图书名称:", books[count].name, sizeof(books[count].name));
+    inputString("请输入作者名称:", books[count].author, sizeof(books[count].author));
+    inputString("请输入出版社:", books[count].publisher, sizeof(books[count].publisher));
+    inputDouble("请输入价格:", &books[count].price);
+    inputInt("请输入图书总量:", &books[count].total);
+    inputInt("是否推荐(1.是 0.否): ", &books[count].recommend);
     books[count].stock = books[count].total;
     count++;
-    return;
+    saveBooksToFile();
+    printf("图书添加成功\n");
 }
+
 void listBook(void)
 {
     if(count == 0)
@@ -123,8 +194,7 @@ int main()
         printf("7.还书\n");
         printf("8.预算购书推荐\n");
         printf("0.退出系统\n");
-        printf("请输入你的选择:");
-        scanf("%d", &choice);
+        inputInt("请输入你的选择:", &choice);
         if (choice == 1)
         {
             addBook();
@@ -155,9 +225,9 @@ int main()
         }
         else if (choice == 8)
         {
-        budgetRecommend();
+            budgetRecommend();
         }
-       else if (choice == 0)
+        else if (choice == 0)
         {
             saveBooksToFile();
             printf("程序已退出。\n");
@@ -170,66 +240,48 @@ int main()
     }
     return 0;
 }
-int findBookid(int id)
-    {
-        for(int i=0;i<count;i++)
-        {
 
-            if(books[i].id==id)
-            {
-                return i;
-            }
+int findBookid(int id)
+{
+    for(int i=0;i<count;i++)
+    {
+        if(books[i].id==id)
+        {
+            return i;
         }
-        return -1;
     }
+    return -1;
+}
+
 void searchBook(void)
 {
     int id;
     int index;
-    printf("请输入要查询的图书编号: ");
-    scanf("%d", &id);
+    inputInt("请输入要查询的图书编号: ", &id);
     index = findBookid(id);
     if(index == -1)
     printf("未找到图书信息\n");
     else
     {
-    printf("编号:%d\n",books[index].id);
-    printf("书名:%s\n", books[index].name);
-    printf("作者:%s\n", books[index].author);
-    printf("出版社:%s\n", books[index].publisher);
-    printf("价格:%.2lf\n", books[index].price);
-    printf("总数量:%d\n", books[index].total);
-    printf("库存:%d\n", books[index].stock);
+        printf("编号:%d\n",books[index].id);
+        printf("书名:%s\n", books[index].name);
+        printf("作者:%s\n", books[index].author);
+        printf("出版社:%s\n", books[index].publisher);
+        printf("价格:%.2lf\n", books[index].price);
+        printf("总数量:%d\n", books[index].total);
+        printf("库存:%d\n", books[index].stock);
+        if (books[index].recommend == 1)
+        printf("推荐状态:推荐\n");
+        else
+        printf("推荐状态:普通\n");
     }
 }
+
 void deleteBook(void)
 {
     int id;
     int index;
-    printf("请输入想要删除的图书:");
-    scanf("%d",&id);
-    index = findBookid(id);
-    if(index==-1)
-    {
-    printf("未找到图书信息\n");
-    return;
-    }
-    else
-    {
-        for(int i=index;i<count-1;i++)
-        {
-            books[i]=books[i+1];
-        }
-        count--;
-        printf("图书删除成功\n");
-    }
-}
-void updateBook(void)
-{
-    int id;
-    int index;
-    printf("请输入要修改的图书:");
-    scanf("%d",&id);
+    inputInt("请输入想要删除的图书:", &id);
     index = findBookid(id);
     if(index==-1)
     {
@@ -238,27 +290,46 @@ void updateBook(void)
     }
     else
     {
-    clearInputBuffer(stdin);
-    printf("请输入新的图书名称: ");
-    readLine(stdin, books[index].name, sizeof(books[index].name));
-    printf("请输入新的作者名称: ");
-    readLine(stdin, books[index].author, sizeof(books[index].author));
-    printf("请输入新的出版社: ");
-    readLine(stdin, books[index].publisher, sizeof(books[index].publisher));
-    printf("请输入新的价格: ");
-    scanf("%lf", &books[index].price);
-    printf("请输入新的图书总量: ");
-    scanf("%d", &books[index].total);
-    books[index].stock = books[index].total;
+        for(int i=index;i<count-1;i++)
+        {
+            books[i]=books[i+1];
+        }
+        count--;
+        saveBooksToFile();
+        printf("图书删除成功\n");
+    }
+}
+
+void updateBook(void)
+{
+    int id;
+    int index;
+    inputInt("请输入要修改的图书:", &id);
+    index = findBookid(id);
+    if(index==-1)
+    {
+        printf("未找到图书信息\n");
+        return;
+    }
+    else
+    {
+        inputString("请输入新的图书名称: ", books[index].name, sizeof(books[index].name));
+        inputString("请输入新的作者名称: ", books[index].author, sizeof(books[index].author));
+        inputString("请输入新的出版社: ", books[index].publisher, sizeof(books[index].publisher));
+        inputDouble("请输入新的价格: ", &books[index].price);
+        inputInt("请输入新的图书总量: ", &books[index].total);
+        inputInt("是否推荐(1.是 0.否): ", &books[index].recommend);
+        books[index].stock = books[index].total;
+        saveBooksToFile();
         printf("图书信息修改成功\n");
     }
 }
+
 void borrowBook(void)
 {
     int id;
     int index;
-    printf("请输入要借阅的图书编号: ");
-    scanf("%d", &id);
+    inputInt("请输入要借阅的图书编号: ", &id);
     index = findBookid(id);
     if (index == -1)
     {
@@ -271,14 +342,15 @@ void borrowBook(void)
         return;
     }
     books[index].stock--;
+    saveBooksToFile();
     printf("借书成功，当前库存:%d\n", books[index].stock);
 }
+
 void returnBook(void)
 {
     int id;
     int index;
-    printf("请输入要归还的图书编号: ");
-    scanf("%d", &id);
+    inputInt("请输入要归还的图书编号: ", &id);
     index = findBookid(id);
     if (index == -1)
     {
@@ -292,8 +364,10 @@ void returnBook(void)
         return;
     }
     books[index].stock++;
+    saveBooksToFile();
     printf("还书成功，当前库存:%d\n", books[index].stock);
 }
+
 void saveBooksToFile(void)
 {
     FILE *fp = fopen("books.txt", "w");
@@ -307,22 +381,24 @@ void saveBooksToFile(void)
 
     for (int i = 0; i < count; i++)
     {
-        fprintf(fp, "%d\n%s\n%s\n%s\n%.2lf %d %d\n",
+        fprintf(fp, "%d\n%s\n%s\n%s\n%.2lf %d %d %d\n",
                 books[i].id,
                 books[i].name,
                 books[i].author,
                 books[i].publisher,
                 books[i].price,
                 books[i].total,
-                books[i].stock);
+                books[i].stock,
+                books[i].recommend);
     }
 
     fclose(fp);
-    printf("图书信息已保存\n");
 }
+
 void loadBooksFromFile(void)
 {
     FILE *fp = fopen("books.txt", "r");
+    int result;
     if (fp == NULL)
     {
         return;
@@ -336,69 +412,79 @@ void loadBooksFromFile(void)
         readLine(fp, books[i].name, sizeof(books[i].name));
         readLine(fp, books[i].author, sizeof(books[i].author));
         readLine(fp, books[i].publisher, sizeof(books[i].publisher));
-        fscanf(fp, "%lf %d %d",
+        result = fscanf(fp, "%lf %d %d %d",
                &books[i].price,
                &books[i].total,
-               &books[i].stock);
+               &books[i].stock,
+               &books[i].recommend);
+        if (result == 3)
+        {
+            books[i].recommend = 0;
+        }
         clearInputBuffer(fp);
     }
     fclose(fp);
 }
-void listRecommendBook(void)
-{
-    int found = 0;
-    for (int i = 0; i < count; i++)
-    {
-        if (books[i].recommend == 1)
-        {
-            found = 1;
-            printf("编号:%d\n", books[i].id);
-            printf("书名:%s\n", books[i].name);
-            printf("作者:%s\n", books[i].author);
-            printf("出版社:%s\n", books[i].publisher);
-            printf("价格:%.2lf\n", books[i].price);
-            printf("总数量:%d\n", books[i].total);
-            printf("库存:%d\n", books[i].stock);
-            printf("-------------------\n");
-        }
-    }
-    if (found == 0)
-    {
-        printf("当前没有推荐图书\n");
-    }
-}
-void dfsBuyBook(int index, double sum)
+
+void dfsBuyBook(int index, double sum, int bookCount)
 {
     if(sum>budget)
     return;
     if(index==count)
     {
-        printf("找到一种方案\n");
-        for(int i=0;i<count;i++)
+        if(bookCount==0)
         {
-            if(chosen[i]==1)
+            return;
+        }
+        if(hasBestPlan==0 || sum>bestSum || (sum==bestSum && bookCount>bestBookCount))
+        {
+            hasBestPlan = 1;
+            bestSum = sum;
+            bestBookCount = bookCount;
+            for(int i=0;i<count;i++)
             {
-                printf("%s\n",books[i].name);
+                bestChosen[i] = chosen[i];
             }
-        }           
-         printf("总价:%2lf\n",sum);
-        printf("--------------------\n");
+        }
         return;
     }
-    dfsBuyBook(index+1,sum);
+    chosen[index]=0;
+    dfsBuyBook(index+1,sum,bookCount);
     chosen[index]=1;
-    dfsBuyBook(index+1,sum+books[index].price);
+    dfsBuyBook(index+1,sum+books[index].price,bookCount+1);
     chosen[index]=0;
 }
+
 void budgetRecommend(void)
 {
-    printf("请输入预算: ");
-    scanf("%lf", &budget);
+    inputDouble("请输入预算: ", &budget);
 
     for (int i = 0; i < count; i++)
     {
         chosen[i] = 0;
+        bestChosen[i] = 0;
     }
 
-    dfsBuyBook(0, 0);
+    bestSum = 0;
+    bestBookCount = 0;
+    hasBestPlan = 0;
+
+    dfsBuyBook(0, 0, 0);
+
+    if (hasBestPlan == 0)
+    {
+        printf("当前预算下没有合适方案\n");
+        return;
+    }
+
+    printf("最优方案如下:\n");
+    for(int i=0;i<count;i++)
+    {
+        if(bestChosen[i]==1)
+        {
+            printf("%s\n",books[i].name);
+        }
+    }
+    printf("最优方案书的数量:%d\n", bestBookCount);
+    printf("总价:%.2lf\n",bestSum);
 }
